@@ -27,7 +27,7 @@ from typing import Any
 
 def logo() -> str:
     """Return the logo/banner."""
-    return '''
+    return r'''
 ____    __    ____  ___   .___________. __    ______   .__   __. 
 \   \  /  \  /   / /   \  |           ||  |  /  __  \  |  \ |  | 
  \   \/    \/   / /  ^  \ `---|  |----`|  | |  |  |  | |   \|  | 
@@ -38,104 +38,25 @@ ____    __    ____  ___   .___________. __    ______   .__   __.
                      Offline Helper v1.0                                       
 '''
 
-# -------------------- Data (from offline docs) --------------------
+# -------------------- Data (from providers.json) --------------------
 
-DNS_PROVIDERS: list[dict[str, Any]] = [
-    {"id": "tic", "name": "TIC (Official)", "is_official": True, "is_sanctions_friendly": False, "is_in_iran": True, "dnsServers": ["217.218.127.127", "217.218.155.155"]},
-    {"id": "ifr-a", "name": "IPM", "is_official": False, "is_sanctions_friendly": False, "is_in_iran": True, "dnsServers": ["194.225.152.10"]},
-    {"id": "tci", "name": "TCI", "is_official": False, "is_sanctions_friendly": False, "is_in_iran": True, "dnsServers": ["217.219.226.98", "217.219.227.30", "217.219.70.122", "87.107.110.110", "2.188.210.5", "2.188.184.19"]},
-    {"id": "tmict", "name": "TMICT", "is_official": False, "is_sanctions_friendly": False, "is_in_iran": True, "dnsServers": ["31.24.234.37"]},
-    {"id": "samantel", "name": "Samantel", "is_official": False, "is_sanctions_friendly": False, "is_in_iran": True, "dnsServers": ["91.245.229.1"]},
-    {"id": "parvaz-system", "name": "Parvaz System", "is_official": False, "is_sanctions_friendly": False, "is_in_iran": True, "dnsServers": ["185.161.112.33", "185.161.112.34"]},
-    {"id": "shatel", "name": "Shatel", "is_official": False, "is_sanctions_friendly": False, "is_in_iran": True, "dnsServers": ["80.75.14.219"]},
-    {"id": "pishgaman", "name": "Pishgaman", "is_official": False, "is_sanctions_friendly": False, "is_in_iran": True, "dnsServers": ["185.229.204.52"]},
-    {"id": "mobinnet", "name": "Mobinnet", "is_official": False, "is_sanctions_friendly": False, "is_in_iran": True, "dnsServers": ["80.210.51.202"]},
-    {"id": "afranet", "name": "Afranet", "is_official": False, "is_sanctions_friendly": False, "is_in_iran": True, "dnsServers": ["212.16.76.19"]},
-    {"id": "mtn", "name": "Irancell", "is_official": False, "is_sanctions_friendly": False, "is_in_iran": True, "dnsServers": ["94.184.225.25"]},
-    {"id": "rightel", "name": "Rightel", "is_official": False, "is_sanctions_friendly": False, "is_in_iran": True, "dnsServers": ["94.182.17.205"]},
-    {"id": "respina", "name": "Respina", "is_official": False, "is_sanctions_friendly": False, "is_in_iran": True, "dnsServers": ["185.176.59.209"]},
-    {"id": "parsonline", "name": "Pars Online", "is_official": False, "is_sanctions_friendly": False, "is_in_iran": True, "dnsServers": ["195.245.70.230"]},
-    {"id": "mci", "name": "MCI", "is_official": False, "is_sanctions_friendly": False, "is_in_iran": True, "dnsServers": ["185.112.38.16"]},
-    {"id": "zitel", "name": "Zitel", "is_official": False, "is_sanctions_friendly": False, "is_in_iran": True, "dnsServers": ["188.213.66.141"]},
-    {"id": "sabanet", "name": "Sabanet", "is_official": False, "is_sanctions_friendly": False, "is_in_iran": True, "dnsServers": ["93.126.25.10", "93.126.25.33"]},
-    {"id": "ifr-b", "name": "IPM", "is_official": False, "is_sanctions_friendly": False, "is_in_iran": True, "dnsServers": ["194.225.152.12", "194.225.62.80"]},
-    {"id": "fanap", "name": "Fanap Telecom", "is_official": False, "is_sanctions_friendly": False, "is_in_iran": True, "dnsServers": ["185.229.28.162"]},
-    {"id": "arvancloud", "name": "ArvanCloud", "is_official": False, "is_sanctions_friendly": False, "is_in_iran": True, "dnsServers": ["185.49.84.2"]},
-    {"id": "rassanet", "name": "Rassanet", "is_official": False, "is_sanctions_friendly": False, "is_in_iran": True, "dnsServers": ["102.37.12.10"]},
-    {"id": "asiatech", "name": "Asiatech", "is_official": False, "is_sanctions_friendly": False, "is_in_iran": True, "dnsServers": ["91.92.208.152"]},
-    {"id": "shecan", "name": "Shecan (Official)", "is_official": True, "is_sanctions_friendly": True, "is_in_iran": True, "dnsServers": ["178.22.122.100", "185.51.200.2"]},
-    {"id": "shecan-unofficial", "name": "Shecan", "is_official": False, "is_sanctions_friendly": False, "is_in_iran": True, "dnsServers": ["178.22.122.246"]},
-    {"id": "begzar", "name": "Begzar (Official)", "is_official": True, "is_sanctions_friendly": True, "is_in_iran": True, "dnsServers": ["185.55.224.24", "185.55.225.25", "185.55.226.26"]},
-    {"id": "google", "name": "Google Public DNS", "is_official": True, "is_sanctions_friendly": False, "is_in_iran": False, "dnsServers": ["8.8.8.8", "8.8.4.4"]},
-    {"id": "cloudflare", "name": "Cloudflare DNS", "is_official": True, "is_sanctions_friendly": False, "is_in_iran": False, "dnsServers": ["1.1.1.1", "1.0.0.1"]},
-    {"id": "opendns", "name": "OpenDNS (Cisco)", "is_official": True, "is_sanctions_friendly": False, "is_in_iran": False, "dnsServers": ["208.67.222.222", "208.67.220.220"]},
-    {"id": "quad9", "name": "Quad9 DNS", "is_official": True, "is_sanctions_friendly": False, "is_in_iran": False, "dnsServers": ["9.9.9.9", "149.112.112.112"]},
-    {"id": "lumen-level3", "name": "Lumen / Level 3 DNS", "is_official": True, "is_sanctions_friendly": False, "is_in_iran": False, "dnsServers": ["205.171.2.65", "205.171.3.65"]},
-    {"id": "verisign", "name": "Verisign Public DNS", "is_official": True, "is_sanctions_friendly": False, "is_in_iran": False, "dnsServers": ["64.6.64.6", "64.6.65.6"]},
-    {"id": "yandex", "name": "Yandex DNS", "is_official": True, "is_sanctions_friendly": False, "is_in_iran": False, "dnsServers": ["77.88.8.8", "77.88.8.1"]},
-    {"id": "cleanbrowsing", "name": "CleanBrowsing DNS", "is_official": True, "is_sanctions_friendly": False, "is_in_iran": False, "dnsServers": ["185.228.168.9", "185.228.169.9"]},
-    {"id": "comodo", "name": "Comodo Secure DNS", "is_official": True, "is_sanctions_friendly": False, "is_in_iran": False, "dnsServers": ["8.26.56.26", "8.20.247.20"]},
-    {"id": "controld", "name": "Control D DNS", "is_official": True, "is_sanctions_friendly": False, "is_in_iran": False, "dnsServers": ["76.76.2.0", "76.76.10.0"]},
-]
+PROVIDERS_FILE = Path(__file__).with_name("providers.json")
 
-DOCKER_MIRRORS = [
-    {"id": "arvan", "name": "ArvanCloud", "url": "https://docker.arvancloud.ir"},
-    {"id": "runflare", "name": "Runflare", "url": "https://mirror-docker.runflare.com"},
-    {"id": "iranserver", "name": "IranServer", "url": "https://docker.iranserver.com"},
-]
 
-LINUX_MIRROR_PROVIDERS: list[dict[str, Any]] = [
-    {"id": "ubuntu-ir-official", "name": "Official Mirror (Iran)", "mirrors": {"root": "https://ir.archive.ubuntu.com/ubuntu/", "ubuntu": "https://ir.archive.ubuntu.com/ubuntu/"}},
-    {"id": "runflare", "name": "Runflare", "mirrors": {"root": "https://mirror-linux.runflare.com/", "ubuntu": "https://mirror-linux.runflare.com/ubuntu", "kali": "https://mirror-linux.runflare.com/kali", "debian": "https://mirror-linux.runflare.com/debian", "fedora": "https://mirror-linux.runflare.com/fedora", "almalinux": "https://mirror-linux.runflare.com/almalinux", "archlinux": "https://mirror-linux.runflare.com/archlinux", "alpine": "https://mirror-linux.runflare.com/alpine"}},
-    {"id": "sindad", "name": "Sindad", "mirrors": {"root": "http://ir.ubuntu.sindad.cloud/ubuntu/", "ubuntu": "http://ir.ubuntu.sindad.cloud/ubuntu/"}},
-    {"id": "shatel", "name": "Shatel", "mirrors": {"root": "https://mirror.shatel.ir/ubuntu/", "ubuntu": "https://mirror.shatel.ir/ubuntu/"}},
-    {"id": "iranserver", "name": "IranServer", "mirrors": {"root": "http://mirror.iranserver.com/ubuntu/", "ubuntu": "http://mirror.iranserver.com/ubuntu/"}},
-    {"id": "iut", "name": "Isfahan University of Technology", "mirrors": {"root": "https://repo.iut.ac.ir/repo/ubuntu/", "ubuntu": "https://repo.iut.ac.ir/repo/ubuntu/"}},
-    {"id": "petiak", "name": "Petiak", "mirrors": {"root": "https://archive.ubuntu.petiak.ir/ubuntu/", "ubuntu": "https://archive.ubuntu.petiak.ir/ubuntu/"}},
-    {"id": "pardisco", "name": "Pardisco", "mirrors": {"root": "https://mirrors.pardisco.co/ubuntu/", "ubuntu": "https://mirrors.pardisco.co/ubuntu/"}},
-    {"id": "aminidc", "name": "AminIDC", "mirrors": {"root": "https://mirror.aminidc.com/ubuntu/", "ubuntu": "https://mirror.aminidc.com/ubuntu/"}},
-    {"id": "zero-one", "name": "0-1", "mirrors": {"root": "https://mirror.0-1.cloud/ubuntu/", "ubuntu": "https://mirror.0-1.cloud/ubuntu/"}},
-    {"id": "arvan", "name": "ArvanCloud", "mirrors": {
-        "root": "http://mirror.arvancloud.ir/",
-        "ubuntu": "http://mirror.arvancloud.ir/ubuntu",
-        "debian": "http://mirror.arvancloud.ir/debian",
-        "debianSecurity": "http://mirror.arvancloud.ir/debian-security",
-        "alpineMain": "https://mirror.arvancloud.ir/alpine/<VERSION>/main",
-        "alpineCommunity": "https://mirror.arvancloud.ir/alpine/<VERSION>/community",
-        "archlinux": "https://mirror.arvancloud.ir/archlinux/$repo/os/$arch",
-        "manjaro": "https://mirror.arvancloud.ir/manjaro/stable/$repo/$arch",
-        "opensuseReposCommand": (
-            'for i in "http://mirror.arvancloud.ir/opensuse/debug/distribution/leap/<VERSION>/repo/oss/ Arvancloud-Debug" '
-            '"http://mirror.arvancloud.ir/opensuse/distribution/leap/<VERSION>/repo/non-oss/ Arvancloud-Non-Oss" '
-            '"http://mirror.arvancloud.ir/opensuse/distribution/leap/<VERSION>/repo/oss/ Arvancloud-Oss" '
-            '"http://mirror.arvancloud.ir/opensuse/source/distribution/leap/<VERSION>/repo/oss/ Arvancloud-Source" '
-            '"http://mirror.arvancloud.ir/opensuse/update/leap/<VERSION>/oss Arvancloud-Update"; do sudo zypper addrepo --priority 1 -f $i; done'
-        ),
-    }},
-]
+def _load_provider_data() -> dict[str, Any]:
+    if not PROVIDERS_FILE.exists():
+        raise FileNotFoundError(f"providers.json not found at {PROVIDERS_FILE}")
+    raw = json.loads(PROVIDERS_FILE.read_text(encoding="utf-8"))
+    if not isinstance(raw, dict):
+        raise ValueError("providers.json root must be a JSON object")
+    return raw
 
-PKG_PROVIDERS = [
-    {"id": "runflare", "name": "Runflare", "mirrors": {
-        "nodeDownload": "https://mirror-nodejs.runflare.com/dist/",
-        "npmRegistry": "https://mirror-npm.runflare.com",
-        "yarnRegistry": "https://mirror-npm.runflare.com",
-        "goproxy": "https://mirror-go.runflare.com",
-        "pypi": "https://mirror-pypi.runflare.com/simple",
-        "maven": "https://mirror-maven.runflare.com/maven2",
-        "nuget": "https://mirror-nuget.runflare.com/v3/index.json",
-        "composer": "https://mirror-composer.runflare.com",
-    }},
-    {"id": "official", "name": "Official Repository", "mirrors": {
-        "nodeDownload": "https://nodejs.org/dist/",
-        "npmRegistry": "https://registry.npmjs.org",
-        "yarnRegistry": "https://registry.yarnpkg.com",
-        "goproxy": "https://proxy.golang.org",
-        "pypi": "https://pypi.org/simple",
-        "maven": "https://repo1.maven.org/maven2",
-        "nuget": "https://api.nuget.org/v3/index.json",
-        "composer": "https://repo.packagist.org",
-    }},
-]
+
+_PROVIDERS_DATA = _load_provider_data()
+DNS_PROVIDERS: list[dict[str, Any]] = _PROVIDERS_DATA.get("dns_providers", [])
+DOCKER_MIRRORS: list[dict[str, Any]] = _PROVIDERS_DATA.get("docker_mirrors", [])
+LINUX_MIRROR_PROVIDERS: list[dict[str, Any]] = _PROVIDERS_DATA.get("linux_mirror_providers", [])
+PKG_PROVIDERS: list[dict[str, Any]] = _PROVIDERS_DATA.get("pkg_providers", [])
 
 UBUNTU_RELEASES = ["plucky", "oracular", "noble", "kinetic", "jammy", "focal"]
 DEBIAN_RELEASES = ["trixie", "bookworm", "bullseye"]
@@ -163,9 +84,16 @@ def err(msg: str) -> None:
     print(f"[ERROR] {msg}")
 
 
-def ask_choice(title: str, items: list[str], allow_back: bool = True) -> int:
+def ask_choice(
+    title: str,
+    items: list[str],
+    allow_back: bool = True,
+    description: str = "",
+) -> int:
     print()
     print(f"=== {title} ===")
+    if description:
+        print(description)
     for i, item in enumerate(items, start=1):
         print(f"{i}) {item}")
     if allow_back:
@@ -196,6 +124,20 @@ def run_command(cmd: str, ctx: Ctx, shell: bool = False) -> int:
     if shell:
         return subprocess.call(cmd, shell=True)
     return subprocess.call(cmd.split())
+
+
+def run_command_capture(cmd: str, shell: bool = False) -> tuple[int, str]:
+    try:
+        if shell:
+            proc = subprocess.run(cmd, shell=True, capture_output=True, text=True, check=False)
+        else:
+            proc = subprocess.run(cmd.split(), capture_output=True, text=True, check=False)
+        out = (proc.stdout or "").strip()
+        if not out and proc.stderr:
+            out = proc.stderr.strip()
+        return proc.returncode, out
+    except Exception:
+        return 1, ""
 
 
 def require_linux() -> bool:
@@ -261,61 +203,201 @@ def filter_dns_providers(network: str, official: str, sanctions: str) -> list[di
     return out
 
 
+def read_resolv_conf_servers() -> list[str]:
+    path = Path("/etc/resolv.conf")
+    if not path.exists():
+        return []
+    servers: list[str] = []
+    for line in path.read_text(encoding="utf-8", errors="ignore").splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        parts = stripped.split()
+        if len(parts) >= 2 and parts[0].lower() == "nameserver":
+            servers.append(parts[1])
+    return servers
+
+
+def read_systemd_resolved_servers() -> list[str]:
+    path = Path("/etc/systemd/resolved.conf")
+    if path.exists():
+        for line in path.read_text(encoding="utf-8", errors="ignore").splitlines():
+            stripped = line.strip()
+            if not stripped or stripped.startswith("#"):
+                continue
+            if stripped.startswith("DNS="):
+                value = stripped.split("=", 1)[1].strip()
+                if value:
+                    return value.split()
+    code, out = run_command_capture("resolvectl dns")
+    if code == 0 and out:
+        servers: list[str] = []
+        for raw in out.splitlines():
+            line = raw.strip()
+            if ":" in line:
+                line = line.split(":", 1)[1].strip()
+            for token in line.split():
+                if "." in token or ":" in token:
+                    servers.append(token)
+        return servers
+    return []
+
+
+def read_networkmanager_servers() -> list[str]:
+    code, out = run_command_capture("nmcli -t -f IP4.DNS,IP6.DNS device show")
+    if code != 0 or not out:
+        return []
+    servers: list[str] = []
+    for line in out.splitlines():
+        if ":" not in line:
+            continue
+        _, value = line.split(":", 1)
+        value = value.strip()
+        if value:
+            servers.append(value)
+    return servers
+
+
+def read_windows_dns_servers() -> list[str]:
+    # Use PowerShell to query configured IPv4 DNS servers on Windows.
+    cmd = (
+        "powershell -NoProfile -Command "
+        "\"Get-DnsClientServerAddress -AddressFamily IPv4 | "
+        "ForEach-Object { $_.ServerAddresses }\""
+    )
+    code, out = run_command_capture(cmd, shell=True)
+    if code != 0 or not out:
+        return []
+    servers: list[str] = []
+    for line in out.splitlines():
+        value = line.strip()
+        if value:
+            servers.append(value)
+    return servers
+
+
+def detect_dns_config() -> tuple[str, list[str]]:
+    os_name = platform.system().lower()
+    if os_name == "windows":
+        return "windows-netsh", read_windows_dns_servers()
+    if os_name != "linux":
+        return "unsupported", []
+
+    resolv_path = Path("/etc/resolv.conf")
+    symlink_target = ""
+    if resolv_path.exists() and resolv_path.is_symlink():
+        try:
+            symlink_target = str(resolv_path.resolve())
+        except OSError:
+            symlink_target = ""
+
+    systemd_active = run_command_capture("systemctl is-active systemd-resolved")[0] == 0
+    nm_active = run_command_capture("systemctl is-active NetworkManager")[0] == 0
+
+    if "systemd/resolve" in symlink_target or systemd_active:
+        return "systemd-resolved", read_systemd_resolved_servers() or read_resolv_conf_servers()
+    if nm_active or Path("/etc/NetworkManager").exists():
+        return "networkmanager", read_networkmanager_servers() or read_resolv_conf_servers()
+    return "resolve.conf", read_resolv_conf_servers()
+
+
 def dns_mode(ctx: Ctx) -> None:
+    info(f"Detected OS: {platform.system().lower()}")
+    manager_type, current_servers = detect_dns_config()
+    if manager_type == "unsupported":
+        warn("\nCurrent DNS manager detection is unsupported on this OS.")
+    else:
+        info(f"\nCurrent DNS manager type: {manager_type}")
+        if current_servers:
+            info("Current DNS servers on server: " + ", ".join(current_servers))
+        else:
+            warn("Could not detect current DNS server config on server.")
+
     network_opts = ["iran", "international", "all"]
     official_opts = ["all", "official", "unofficial"]
     sanctions_opts = ["all", "has", "does_not_have"]
 
-    n_idx = ask_choice("DNS Network Type", network_opts, allow_back=False)
-    o_idx = ask_choice("DNS Official Filter", official_opts, allow_back=False)
-    s_idx = ask_choice("DNS Sanctions-Friendly Filter", sanctions_opts, allow_back=False)
-
-    providers = filter_dns_providers(network_opts[n_idx], official_opts[o_idx], sanctions_opts[s_idx])
-    if not providers:
-        warn("No providers match selected filters.")
-        return
-
-    p_idx = ask_choice(
-        "Select DNS Provider",
-        [f'{p["name"]} | {", ".join(p["dnsServers"])}' for p in providers],
-        allow_back=True,
-    )
-    if p_idx < 0:
-        return
-    provider = providers[p_idx]
-    servers = provider["dnsServers"]
-    info(f'Selected: {provider["name"]}')
-    info("DNS: " + ", ".join(servers))
-
-    action_idx = ask_choice(
-        "DNS Action",
-        [
-            "Print recommended commands only",
-            "Apply Linux resolv.conf",
-            "Apply Linux nmcli connection DNS",
-            "Apply Linux systemd-resolved",
-            "Apply Windows netsh DNS",
-        ],
-        allow_back=True,
-    )
-    if action_idx < 0:
-        return
-
-    if action_idx == 0:
-        print_dns_commands(servers)
-        return
-    if action_idx in (1, 2, 3):
-        if not require_linux():
+    while True:
+        n_idx = ask_choice(
+            "DNS Network Type",
+            network_opts,
+            allow_back=True,
+            description="Meaning: Filter providers by location scope (inside Iran, outside Iran, or all).",
+        )
+        if n_idx < 0:
             return
 
-    if action_idx == 1:
-        apply_dns_resolv_conf(servers, ctx)
-    elif action_idx == 2:
-        apply_dns_nmcli(servers, ctx)
-    elif action_idx == 3:
-        apply_dns_systemd_resolved(servers, ctx)
-    elif action_idx == 4:
-        apply_dns_windows_netsh(servers, ctx)
+        while True:
+            o_idx = ask_choice(
+                "DNS Official Filter",
+                official_opts,
+                allow_back=True,
+                description="Meaning: Filter providers by ownership source (official provider/operator entries vs unofficial/community entries).",
+            )
+            if o_idx < 0:
+                break
+
+            while True:
+                s_idx = ask_choice(
+                    "DNS Sanctions-Friendly Filter",
+                    sanctions_opts,
+                    allow_back=True,
+                    description="Meaning: Filter providers by sanctions-friendliness (DNS services intended to help bypass sanctions/restrictions).",
+                )
+                if s_idx < 0:
+                    break
+
+                providers = filter_dns_providers(network_opts[n_idx], official_opts[o_idx], sanctions_opts[s_idx])
+                if not providers:
+                    warn("No providers match selected filters.")
+                    continue
+
+                while True:
+                    p_idx = ask_choice(
+                        "Select DNS Provider",
+                        [f'{p["name"]} | {", ".join(p["dnsServers"])}' for p in providers],
+                        allow_back=True,
+                    )
+                    if p_idx < 0:
+                        break
+
+                    provider = providers[p_idx]
+                    servers = provider["dnsServers"]
+                    info(f'\nSelected: {provider["name"]}')
+                    info("DNS: " + ", ".join(servers))
+
+                    actions: list[tuple[str, str]] = [("print", "Print recommended commands only")]
+                    if manager_type == "resolve.conf":
+                        actions.append(("resolv_conf", "Apply Linux resolv.conf"))
+                    elif manager_type == "networkmanager":
+                        actions.append(("nmcli", "Apply Linux nmcli connection DNS"))
+                    elif manager_type == "systemd-resolved":
+                        actions.append(("systemd_resolved", "Apply Linux systemd-resolved"))
+                    elif manager_type == "windows-netsh":
+                        actions.append(("windows_netsh", "Apply Windows netsh DNS"))
+                    else:
+                        warn("No apply option for detected DNS manager; only print mode is available.")
+
+                    action_idx = ask_choice("DNS Action", [x[1] for x in actions], allow_back=True)
+                    if action_idx < 0:
+                        continue
+
+                    selected_action = actions[action_idx][0]
+                    if selected_action == "print":
+                        print_dns_commands(servers)
+                        return
+                    if selected_action == "resolv_conf":
+                        apply_dns_resolv_conf(servers, ctx)
+                        return
+                    if selected_action == "nmcli":
+                        apply_dns_nmcli(servers, ctx)
+                        return
+                    if selected_action == "systemd_resolved":
+                        apply_dns_systemd_resolved(servers, ctx)
+                        return
+                    if selected_action == "windows_netsh":
+                        apply_dns_windows_netsh(servers, ctx)
+                        return
 
 
 def print_dns_commands(servers: list[str]) -> None:

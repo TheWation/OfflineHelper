@@ -14,9 +14,10 @@ It helps you quickly switch to documented local DNS/mirrors and apply related sy
 - Automatic package index refresh after Linux repo changes
 - Graceful `Ctrl+C` exit without traceback
 
-## File
+## Files
 
 - Script: `OfflineHelper.py`
+- Data: `providers.json` (DNS providers, Linux/Docker mirrors, package providers)
 
 ## Requirements
 

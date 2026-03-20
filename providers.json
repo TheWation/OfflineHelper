@@ -1,0 +1,89 @@
+{
+  "dns_providers": [
+    {"id": "tic", "name": "TIC (Official)", "is_official": true, "is_sanctions_friendly": false, "is_in_iran": true, "dnsServers": ["217.218.127.127", "217.218.155.155"]},
+    {"id": "ifr-a", "name": "IPM", "is_official": false, "is_sanctions_friendly": false, "is_in_iran": true, "dnsServers": ["194.225.152.10"]},
+    {"id": "tci", "name": "TCI", "is_official": false, "is_sanctions_friendly": false, "is_in_iran": true, "dnsServers": ["217.219.226.98", "217.219.227.30", "217.219.70.122", "87.107.110.110", "2.188.210.5", "2.188.184.19"]},
+    {"id": "tmict", "name": "TMICT", "is_official": false, "is_sanctions_friendly": false, "is_in_iran": true, "dnsServers": ["31.24.234.37"]},
+    {"id": "samantel", "name": "Samantel", "is_official": false, "is_sanctions_friendly": false, "is_in_iran": true, "dnsServers": ["91.245.229.1"]},
+    {"id": "parvaz-system", "name": "Parvaz System", "is_official": false, "is_sanctions_friendly": false, "is_in_iran": true, "dnsServers": ["185.161.112.33", "185.161.112.34"]},
+    {"id": "shatel", "name": "Shatel", "is_official": false, "is_sanctions_friendly": false, "is_in_iran": true, "dnsServers": ["80.75.14.219"]},
+    {"id": "pishgaman", "name": "Pishgaman", "is_official": false, "is_sanctions_friendly": false, "is_in_iran": true, "dnsServers": ["185.229.204.52"]},
+    {"id": "mobinnet", "name": "Mobinnet", "is_official": false, "is_sanctions_friendly": false, "is_in_iran": true, "dnsServers": ["80.210.51.202"]},
+    {"id": "afranet", "name": "Afranet", "is_official": false, "is_sanctions_friendly": false, "is_in_iran": true, "dnsServers": ["212.16.76.19"]},
+    {"id": "mtn", "name": "Irancell", "is_official": false, "is_sanctions_friendly": false, "is_in_iran": true, "dnsServers": ["94.184.225.25"]},
+    {"id": "rightel", "name": "Rightel", "is_official": false, "is_sanctions_friendly": false, "is_in_iran": true, "dnsServers": ["94.182.17.205"]},
+    {"id": "respina", "name": "Respina", "is_official": false, "is_sanctions_friendly": false, "is_in_iran": true, "dnsServers": ["185.176.59.209"]},
+    {"id": "parsonline", "name": "Pars Online", "is_official": false, "is_sanctions_friendly": false, "is_in_iran": true, "dnsServers": ["195.245.70.230"]},
+    {"id": "mci", "name": "MCI", "is_official": false, "is_sanctions_friendly": false, "is_in_iran": true, "dnsServers": ["185.112.38.16"]},
+    {"id": "zitel", "name": "Zitel", "is_official": false, "is_sanctions_friendly": false, "is_in_iran": true, "dnsServers": ["188.213.66.141"]},
+    {"id": "sabanet", "name": "Sabanet", "is_official": false, "is_sanctions_friendly": false, "is_in_iran": true, "dnsServers": ["93.126.25.10", "93.126.25.33"]},
+    {"id": "ifr-b", "name": "IPM", "is_official": false, "is_sanctions_friendly": false, "is_in_iran": true, "dnsServers": ["194.225.152.12", "194.225.62.80"]},
+    {"id": "fanap", "name": "Fanap Telecom", "is_official": false, "is_sanctions_friendly": false, "is_in_iran": true, "dnsServers": ["185.229.28.162"]},
+    {"id": "arvancloud", "name": "ArvanCloud", "is_official": false, "is_sanctions_friendly": false, "is_in_iran": true, "dnsServers": ["185.49.84.2"]},
+    {"id": "rassanet", "name": "Rassanet", "is_official": false, "is_sanctions_friendly": false, "is_in_iran": true, "dnsServers": ["102.37.12.10"]},
+    {"id": "asiatech", "name": "Asiatech", "is_official": false, "is_sanctions_friendly": false, "is_in_iran": true, "dnsServers": ["91.92.208.152"]},
+    {"id": "shecan", "name": "Shecan (Official)", "is_official": true, "is_sanctions_friendly": true, "is_in_iran": true, "dnsServers": ["178.22.122.100", "185.51.200.2"]},
+    {"id": "shecan-unofficial", "name": "Shecan", "is_official": false, "is_sanctions_friendly": false, "is_in_iran": true, "dnsServers": ["178.22.122.246"]},
+    {"id": "begzar", "name": "Begzar (Official)", "is_official": true, "is_sanctions_friendly": true, "is_in_iran": true, "dnsServers": ["185.55.224.24", "185.55.225.25", "185.55.226.26"]},
+    {"id": "google", "name": "Google Public DNS", "is_official": true, "is_sanctions_friendly": false, "is_in_iran": false, "dnsServers": ["8.8.8.8", "8.8.4.4"]},
+    {"id": "cloudflare", "name": "Cloudflare DNS", "is_official": true, "is_sanctions_friendly": false, "is_in_iran": false, "dnsServers": ["1.1.1.1", "1.0.0.1"]},
+    {"id": "opendns", "name": "OpenDNS (Cisco)", "is_official": true, "is_sanctions_friendly": false, "is_in_iran": false, "dnsServers": ["208.67.222.222", "208.67.220.220"]},
+    {"id": "quad9", "name": "Quad9 DNS", "is_official": true, "is_sanctions_friendly": false, "is_in_iran": false, "dnsServers": ["9.9.9.9", "149.112.112.112"]},
+    {"id": "lumen-level3", "name": "Lumen / Level 3 DNS", "is_official": true, "is_sanctions_friendly": false, "is_in_iran": false, "dnsServers": ["205.171.2.65", "205.171.3.65"]},
+    {"id": "verisign", "name": "Verisign Public DNS", "is_official": true, "is_sanctions_friendly": false, "is_in_iran": false, "dnsServers": ["64.6.64.6", "64.6.65.6"]},
+    {"id": "yandex", "name": "Yandex DNS", "is_official": true, "is_sanctions_friendly": false, "is_in_iran": false, "dnsServers": ["77.88.8.8", "77.88.8.1"]},
+    {"id": "cleanbrowsing", "name": "CleanBrowsing DNS", "is_official": true, "is_sanctions_friendly": false, "is_in_iran": false, "dnsServers": ["185.228.168.9", "185.228.169.9"]},
+    {"id": "comodo", "name": "Comodo Secure DNS", "is_official": true, "is_sanctions_friendly": false, "is_in_iran": false, "dnsServers": ["8.26.56.26", "8.20.247.20"]},
+    {"id": "controld", "name": "Control D DNS", "is_official": true, "is_sanctions_friendly": false, "is_in_iran": false, "dnsServers": ["76.76.2.0", "76.76.10.0"]}
+  ],
+  "docker_mirrors": [
+    {"id": "arvan", "name": "ArvanCloud", "url": "https://docker.arvancloud.ir"},
+    {"id": "runflare", "name": "Runflare", "url": "https://mirror-docker.runflare.com"},
+    {"id": "iranserver", "name": "IranServer", "url": "https://docker.iranserver.com"}
+  ],
+  "linux_mirror_providers": [
+    {"id": "ubuntu-ir-official", "name": "Official Mirror (Iran)", "mirrors": {"root": "https://ir.archive.ubuntu.com/ubuntu/", "ubuntu": "https://ir.archive.ubuntu.com/ubuntu/"}},
+    {"id": "runflare", "name": "Runflare", "mirrors": {"root": "https://mirror-linux.runflare.com/", "ubuntu": "https://mirror-linux.runflare.com/ubuntu", "kali": "https://mirror-linux.runflare.com/kali", "debian": "https://mirror-linux.runflare.com/debian", "fedora": "https://mirror-linux.runflare.com/fedora", "almalinux": "https://mirror-linux.runflare.com/almalinux", "archlinux": "https://mirror-linux.runflare.com/archlinux", "alpine": "https://mirror-linux.runflare.com/alpine"}},
+    {"id": "sindad", "name": "Sindad", "mirrors": {"root": "http://ir.ubuntu.sindad.cloud/ubuntu/", "ubuntu": "http://ir.ubuntu.sindad.cloud/ubuntu/"}},
+    {"id": "shatel", "name": "Shatel", "mirrors": {"root": "https://mirror.shatel.ir/ubuntu/", "ubuntu": "https://mirror.shatel.ir/ubuntu/"}},
+    {"id": "iranserver", "name": "IranServer", "mirrors": {"root": "http://mirror.iranserver.com/ubuntu/", "ubuntu": "http://mirror.iranserver.com/ubuntu/"}},
+    {"id": "iut", "name": "Isfahan University of Technology", "mirrors": {"root": "https://repo.iut.ac.ir/repo/ubuntu/", "ubuntu": "https://repo.iut.ac.ir/repo/ubuntu/"}},
+    {"id": "petiak", "name": "Petiak", "mirrors": {"root": "https://archive.ubuntu.petiak.ir/ubuntu/", "ubuntu": "https://archive.ubuntu.petiak.ir/ubuntu/"}},
+    {"id": "pardisco", "name": "Pardisco", "mirrors": {"root": "https://mirrors.pardisco.co/ubuntu/", "ubuntu": "https://mirrors.pardisco.co/ubuntu/"}},
+    {"id": "aminidc", "name": "AminIDC", "mirrors": {"root": "https://mirror.aminidc.com/ubuntu/", "ubuntu": "https://mirror.aminidc.com/ubuntu/"}},
+    {"id": "zero-one", "name": "0-1", "mirrors": {"root": "https://mirror.0-1.cloud/ubuntu/", "ubuntu": "https://mirror.0-1.cloud/ubuntu/"}},
+    {"id": "arvan", "name": "ArvanCloud", "mirrors": {
+      "root": "http://mirror.arvancloud.ir/",
+      "ubuntu": "http://mirror.arvancloud.ir/ubuntu",
+      "debian": "http://mirror.arvancloud.ir/debian",
+      "debianSecurity": "http://mirror.arvancloud.ir/debian-security",
+      "alpineMain": "https://mirror.arvancloud.ir/alpine/<VERSION>/main",
+      "alpineCommunity": "https://mirror.arvancloud.ir/alpine/<VERSION>/community",
+      "archlinux": "https://mirror.arvancloud.ir/archlinux/$repo/os/$arch",
+      "manjaro": "https://mirror.arvancloud.ir/manjaro/stable/$repo/$arch",
+      "opensuseReposCommand": "for i in \"http://mirror.arvancloud.ir/opensuse/debug/distribution/leap/<VERSION>/repo/oss/ Arvancloud-Debug\" \"http://mirror.arvancloud.ir/opensuse/distribution/leap/<VERSION>/repo/non-oss/ Arvancloud-Non-Oss\" \"http://mirror.arvancloud.ir/opensuse/distribution/leap/<VERSION>/repo/oss/ Arvancloud-Oss\" \"http://mirror.arvancloud.ir/opensuse/source/distribution/leap/<VERSION>/repo/oss/ Arvancloud-Source\" \"http://mirror.arvancloud.ir/opensuse/update/leap/<VERSION>/oss Arvancloud-Update\"; do sudo zypper addrepo --priority 1 -f $i; done"
+    }}
+  ],
+  "pkg_providers": [
+    {"id": "runflare", "name": "Runflare", "mirrors": {
+      "nodeDownload": "https://mirror-nodejs.runflare.com/dist/",
+      "npmRegistry": "https://mirror-npm.runflare.com",
+      "yarnRegistry": "https://mirror-npm.runflare.com",
+      "goproxy": "https://mirror-go.runflare.com",
+      "pypi": "https://mirror-pypi.runflare.com/simple",
+      "maven": "https://mirror-maven.runflare.com/maven2",
+      "nuget": "https://mirror-nuget.runflare.com/v3/index.json",
+      "composer": "https://mirror-composer.runflare.com"
+    }},
+    {"id": "official", "name": "Official Repository", "mirrors": {
+      "nodeDownload": "https://nodejs.org/dist/",
+      "npmRegistry": "https://registry.npmjs.org",
+      "yarnRegistry": "https://registry.yarnpkg.com",
+      "goproxy": "https://proxy.golang.org",
+      "pypi": "https://pypi.org/simple",
+      "maven": "https://repo1.maven.org/maven2",
+      "nuget": "https://api.nuget.org/v3/index.json",
+      "composer": "https://repo.packagist.org"
+    }}
+  ]
+}

@@ -32,3 +32,6 @@ build/
 
 # Environment Variables
 .env
+
+# Generated release archives
+releases/
