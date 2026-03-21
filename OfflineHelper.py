@@ -13,16 +13,21 @@ All mirror/provider values are extracted from local offline documentation.
 
 from __future__ import annotations
 
+import argparse
 import datetime as _dt
 import json
 import os
 import platform
+import re
 import shutil
 import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+from urllib.error import URLError
+from urllib.parse import urlparse
+from urllib.request import Request, urlopen
 
 
 def logo() -> str:
@@ -57,6 +62,8 @@ DNS_PROVIDERS: list[dict[str, Any]] = _PROVIDERS_DATA.get("dns_providers", [])
 DOCKER_MIRRORS: list[dict[str, Any]] = _PROVIDERS_DATA.get("docker_mirrors", [])
 LINUX_MIRROR_PROVIDERS: list[dict[str, Any]] = _PROVIDERS_DATA.get("linux_mirror_providers", [])
 PKG_PROVIDERS: list[dict[str, Any]] = _PROVIDERS_DATA.get("pkg_providers", [])
+
+APT_KEYRINGS_DIR = Path("/usr/share/keyrings")
 
 UBUNTU_RELEASES = ["plucky", "oracular", "noble", "kinetic", "jammy", "focal"]
 DEBIAN_RELEASES = ["trixie", "bookworm", "bullseye"]
@@ -177,7 +184,184 @@ def write_text_file(path: Path, content: str, ctx: Ctx) -> None:
     path.write_text(content, encoding="utf-8")
 
 
+def write_binary_file(path: Path, data: bytes, ctx: Ctx) -> None:
+    info(f"Write file: {path}")
+    if ctx.dry_run:
+        print(f"----- would write {len(data)} bytes -----")
+        return
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(data)
+
+
+def _safe_keyring_basename(name: str) -> str | None:
+    name = name.strip()
+    if not name or "/" in name or "\\" in name or ".." in name:
+        return None
+    if not name.endswith(".gpg"):
+        name = name + ".gpg"
+    return name
+
+
+def default_keyring_filename_from_url(url: str) -> str:
+    path = urlparse(url).path
+    base = Path(path).name
+    if not base or base in (".", ".."):
+        return "repo-keyring.gpg"
+    if base.endswith(".asc"):
+        return base[:-4] + ".gpg"
+    if base.endswith(".gpg"):
+        return base
+    return base + ".gpg"
+
+
+def install_apt_keyring_from_url(url: str, dest_basename: str | None, ctx: Ctx) -> Path | None:
+    """
+    Download key material from URL, pipe through gpg --dearmor, write to /usr/share/keyrings/<name>.gpg.
+    Mirrors: curl -fsSL URL | sudo gpg --dearmor -o /usr/share/keyrings/...
+    """
+    raw_name = (dest_basename or "").strip() or default_keyring_filename_from_url(url)
+    safe = _safe_keyring_basename(raw_name)
+    if not safe:
+        err("Invalid keyring filename (use a basename only, e.g. x-online.gpg).")
+        return None
+    dest = (APT_KEYRINGS_DIR / safe).resolve()
+
+    if ctx.dry_run:
+        info(f"Would: mkdir -p {APT_KEYRINGS_DIR} && curl -fsSL <url> | gpg --dearmor -o {dest}")
+        return dest
+
+    if not shutil.which("gpg"):
+        err("gpg not found in PATH; cannot dearmor repository signing key.")
+        return None
+
+    try:
+        req = Request(url, headers={"User-Agent": "OfflineHelper/1.0"})
+        with urlopen(req, timeout=120) as resp:
+            raw = resp.read()
+    except URLError as e:
+        err(f"Failed to download keyring from URL: {e}")
+        return None
+
+    proc = subprocess.run(
+        ["gpg", "--no-tty", "--batch", "--dearmor"],
+        input=raw,
+        capture_output=True,
+        check=False,
+    )
+    if proc.returncode != 0:
+        err(f"gpg --dearmor failed: {(proc.stderr or b'').decode(errors='replace')}")
+        return None
+    binary = proc.stdout
+    if not binary:
+        err("gpg --dearmor produced empty output.")
+        return None
+
+    APT_KEYRINGS_DIR.mkdir(parents=True, exist_ok=True)
+    backup_file(dest, ctx)
+    write_binary_file(dest, binary, ctx)
+    info(f"Installed APT keyring: {dest}")
+    return dest
+
+
+def apt_signed_by_prefix(keyring_path: Path | None) -> str:
+    if not keyring_path:
+        return ""
+    return f" [signed-by={keyring_path}]"
+
+
+def extract_components_from_release_text(text: str) -> list[str] | None:
+    """Parse the Components field from a Release / InRelease body (plain or clearsigned)."""
+    m = re.search(r"(?m)^Components:\s*(.+)$", text)
+    if not m:
+        return None
+    parts = m.group(1).strip().split()
+    return parts if parts else None
+
+
+def fetch_apt_repo_components(base_url: str, suite: str, ctx: Ctx) -> list[str] | None:
+    """
+    GET dists/<suite>/Release or InRelease and return the Components list.
+    Skips network when ctx.dry_run (caller should use fallback).
+    """
+    if ctx.dry_run:
+        return None
+    root = base_url.rstrip("/")
+    for fname in ("Release", "InRelease"):
+        url = f"{root}/dists/{suite}/{fname}"
+        try:
+            req = Request(url, headers={"User-Agent": "OfflineHelper/1.0"})
+            with urlopen(req, timeout=60) as resp:
+                raw = resp.read()
+            text = raw.decode("utf-8", errors="replace")
+            comps = extract_components_from_release_text(text)
+            if comps:
+                info(f"Detected APT components from {url}: {' '.join(comps)}")
+                return comps
+        except URLError as e:
+            warn(f"Could not fetch {url}: {e}")
+            continue
+    return None
+
+
+def resolve_apt_components_string(
+    mirrors: dict[str, Any],
+    base_url: str,
+    suite: str,
+    ctx: Ctx,
+    fallback: list[str],
+) -> str:
+    """
+    Space-separated component list for a deb line.
+    Optional mirrors['aptComponents'] or ['apt_components'] overrides (e.g. 'main universe').
+    Otherwise fetches Release; if that fails, uses fallback.
+    """
+    forced = mirrors.get("aptComponents") or mirrors.get("apt_components")
+    if forced is not None and str(forced).strip():
+        s = " ".join(str(forced).split())
+        info(f"Using configured APT components: {s}")
+        return s
+    found = fetch_apt_repo_components(base_url, suite, ctx)
+    if found:
+        return " ".join(found)
+    fb = " ".join(fallback)
+    warn(f"Could not detect repository components from Release; using fallback: {fb}")
+    return fb
+
+
+def prompt_optional_apt_keyring(distro: str, mirrors: dict[str, Any]) -> None:
+    if distro not in ("ubuntu", "debian", "kali"):
+        return
+    print()
+    url = input("APT keyring URL (optional, Enter to skip; e.g. https://host/key.gpg): ").strip()
+    if not url:
+        return
+    default_name = default_keyring_filename_from_url(url)
+    name_hint = input(f"Filename under {APT_KEYRINGS_DIR} [{default_name}]: ").strip() or default_name
+    mirrors["keyringUrl"] = url
+    mirrors["keyringName"] = name_hint
+
+
 # -------------------- DNS mode --------------------
+
+
+def parse_dns_servers_arg(value: str) -> list[str]:
+    """Parse comma/space-separated DNS server addresses."""
+    parts = re.split(r"[\s,;]+", value.strip())
+    return [p for p in parts if p]
+
+
+def find_dns_provider_by_id(provider_id: str) -> dict[str, Any] | None:
+    for p in DNS_PROVIDERS:
+        if str(p.get("id", "")).lower() == provider_id.lower():
+            return p
+    return None
+
+
+def find_linux_mirror_provider_by_id(provider_id: str) -> dict[str, Any] | None:
+    for p in LINUX_MIRROR_PROVIDERS:
+        if str(p.get("id", "")).lower() == provider_id.lower():
+            return p
+    return None
 
 
 def filter_dns_providers(network: str, official: str, sanctions: str) -> list[dict[str, Any]]:
@@ -276,6 +460,53 @@ def read_windows_dns_servers() -> list[str]:
     return servers
 
 
+def dns_apply_method(
+    servers: list[str],
+    method: str,
+    ctx: Ctx,
+    nmcli_connection: str | None = None,
+    windows_interface: str | None = None,
+) -> bool:
+    """Apply DNS using method name. Returns True if handled."""
+    if method == "print":
+        print_dns_commands(servers)
+        return True
+    if method == "resolv_conf":
+        apply_dns_resolv_conf(servers, ctx)
+        return True
+    if method == "nmcli":
+        apply_dns_nmcli(servers, ctx, connection=nmcli_connection)
+        return True
+    if method == "systemd_resolved":
+        apply_dns_systemd_resolved(servers, ctx)
+        return True
+    if method == "windows_netsh":
+        apply_dns_windows_netsh(servers, ctx, interface=windows_interface)
+        return True
+    return False
+
+
+def dns_resolve_apply_method(
+    servers: list[str],
+    ctx: Ctx,
+    manager_type: str,
+    nmcli_connection: str | None = None,
+    windows_interface: str | None = None,
+) -> None:
+    """Pick apply method from detected manager and run."""
+    if manager_type == "resolve.conf":
+        apply_dns_resolv_conf(servers, ctx)
+    elif manager_type == "networkmanager":
+        apply_dns_nmcli(servers, ctx, connection=nmcli_connection)
+    elif manager_type == "systemd-resolved":
+        apply_dns_systemd_resolved(servers, ctx)
+    elif manager_type == "windows-netsh":
+        apply_dns_windows_netsh(servers, ctx, interface=windows_interface)
+    else:
+        warn("No apply option for detected DNS manager; printing commands only.")
+        print_dns_commands(servers)
+
+
 def detect_dns_config() -> tuple[str, list[str]]:
     os_name = platform.system().lower()
     if os_name == "windows":
@@ -352,19 +583,30 @@ def dns_mode(ctx: Ctx) -> None:
                     warn("No providers match selected filters.")
                     continue
 
+                provider_labels = [f'{p["name"]} | {", ".join(p["dnsServers"])}' for p in providers]
+                provider_labels.append("Custom — enter DNS server addresses manually")
+
                 while True:
                     p_idx = ask_choice(
                         "Select DNS Provider",
-                        [f'{p["name"]} | {", ".join(p["dnsServers"])}' for p in providers],
+                        provider_labels,
                         allow_back=True,
                     )
                     if p_idx < 0:
                         break
 
-                    provider = providers[p_idx]
-                    servers = provider["dnsServers"]
-                    info(f'\nSelected: {provider["name"]}')
-                    info("DNS: " + ", ".join(servers))
+                    if p_idx == len(providers):
+                        raw = input("DNS servers (comma or space separated): ").strip()
+                        servers = parse_dns_servers_arg(raw)
+                        if not servers:
+                            warn("No DNS servers entered.")
+                            continue
+                        info("Custom DNS: " + ", ".join(servers))
+                    else:
+                        provider = providers[p_idx]
+                        servers = provider["dnsServers"]
+                        info(f'\nSelected: {provider["name"]}')
+                        info("DNS: " + ", ".join(servers))
 
                     actions: list[tuple[str, str]] = [("print", "Print recommended commands only")]
                     if manager_type == "resolve.conf":
@@ -441,8 +683,11 @@ def apply_dns_resolv_conf(servers: list[str], ctx: Ctx) -> None:
     info("Applied DNS to /etc/resolv.conf")
 
 
-def apply_dns_nmcli(servers: list[str], ctx: Ctx) -> None:
-    conn = input('Connection name (example: "Wired connection 1"): ').strip()
+def apply_dns_nmcli(servers: list[str], ctx: Ctx, connection: str | None = None) -> None:
+    if connection is None:
+        conn = input('Connection name (example: "Wired connection 1"): ').strip()
+    else:
+        conn = connection.strip()
     if not conn:
         warn("Empty connection name.")
         return
@@ -465,8 +710,11 @@ def apply_dns_systemd_resolved(servers: list[str], ctx: Ctx) -> None:
     run_command("resolvectl status", ctx, shell=True)
 
 
-def apply_dns_windows_netsh(servers: list[str], ctx: Ctx) -> None:
-    nic = input('Windows interface name (example: "Ethernet"): ').strip() or "Ethernet"
+def apply_dns_windows_netsh(servers: list[str], ctx: Ctx, interface: str | None = None) -> None:
+    if interface is None:
+        nic = input('Windows interface name (example: "Ethernet"): ').strip() or "Ethernet"
+    else:
+        nic = interface.strip() or "Ethernet"
     if not servers:
         warn("No DNS servers selected.")
         return
@@ -549,6 +797,228 @@ def detect_linux_distro_release() -> tuple[str, str]:
     return "", ""
 
 
+def prompt_custom_linux_mirrors(distro: str, release: str) -> dict[str, str] | None:
+    """Interactive prompts to build a mirrors dict for apply_linux_repo_config."""
+    info(f"Enter custom mirror URLs for detected distro: {distro}" + (f" ({release})" if release else ""))
+
+    if distro == "ubuntu":
+        u = input("Ubuntu archive base URL (example: https://mirror.example/ubuntu): ").strip().rstrip("/")
+        if not u:
+            return None
+        return {"ubuntu": u + "/" if not u.endswith("/") else u}
+
+    if distro == "kali":
+        k = input("Kali archive base URL: ").strip().rstrip("/")
+        if not k:
+            return None
+        return {"kali": k + "/" if not k.endswith("/") else k}
+
+    if distro == "debian":
+        main = input("Debian main mirror URL (example: https://mirror.example/debian): ").strip().rstrip("/")
+        if not main:
+            return None
+        sec = input("Debian security mirror URL (optional, Enter to skip): ").strip().rstrip("/")
+        out: dict[str, str] = {"debian": main + "/" if not main.endswith("/") else main}
+        if sec:
+            out["debianSecurity"] = sec + "/" if not sec.endswith("/") else sec
+        return out
+
+    if distro == "fedora":
+        furl = input("Fedora mirror base URL (releases + updates tree root): ").strip().rstrip("/")
+        if not furl:
+            return None
+        return {"fedora": furl + "/" if not furl.endswith("/") else furl}
+
+    if distro == "almalinux":
+        a = input("AlmaLinux mirror base URL: ").strip().rstrip("/")
+        if not a:
+            return None
+        return {"almalinux": a + "/" if not a.endswith("/") else a}
+
+    if distro in ("archlinux", "manjaro"):
+        key = "archlinux" if distro == "archlinux" else "manjaro"
+        s = input(
+            f"Pacman Server URL line value (with $repo/$arch if needed, example: https://mirror/$repo/os/$arch): "
+        ).strip()
+        if not s:
+            return None
+        return {key: s}
+
+    if distro == "alpine":
+        print("Enter two repository lines (main and community), or a single base URL.")
+        base = input("Alpine base URL (optional if you paste full lines next): ").strip().rstrip("/")
+        line1 = input("Line 1 — main repo URL (or Enter to derive from base): ").strip()
+        line2 = input("Line 2 — community repo URL (or Enter to derive from base): ").strip()
+        if line1 and line2:
+            return {"alpineMain": line1, "alpineCommunity": line2}
+        if base:
+            b = base + "/" if not base.endswith("/") else base
+            return {
+                "alpineMain": f"{b}{release}/main",
+                "alpineCommunity": f"{b}{release}/community",
+            }
+        warn("Need either two repo lines or a base URL.")
+        return None
+
+    if distro == "opensuse":
+        cmd = input(
+            "Shell command to add repos (use <VERSION> for release; example: zypper addrepo ...): "
+        ).strip()
+        if not cmd:
+            return None
+        return {"opensuseReposCommand": cmd}
+
+    warn("Custom mirror entry is not implemented for this distro in prompts.")
+    return None
+
+
+def _apt_keyring_path_from_mirrors(mirrors: dict[str, Any], distro: str, ctx: Ctx) -> Path | None:
+    ku = mirrors.get("keyringUrl") or mirrors.get("keyring_url")
+    if not ku:
+        return None
+    if distro not in ("ubuntu", "debian", "kali"):
+        warn("keyringUrl is set but distro is not apt-based; ignoring keyring.")
+        return None
+    kn = mirrors.get("keyringName") or mirrors.get("keyring_name")
+    return install_apt_keyring_from_url(str(ku), str(kn) if kn else None, ctx)
+
+
+def apply_linux_repo_config(distro: str, release: str, mirrors: dict[str, Any], ctx: Ctx) -> None:
+    """Write repo config for detected distro using provider-style mirrors dict."""
+    post_change_update_cmd = ""
+
+    apt_keyring: Path | None = None
+    if distro in ("ubuntu", "debian", "kali"):
+        apt_keyring = _apt_keyring_path_from_mirrors(mirrors, distro, ctx)
+        wanted = mirrors.get("keyringUrl") or mirrors.get("keyring_url")
+        if wanted and apt_keyring is None:
+            err("Aborting: APT keyring installation failed.")
+            return
+
+    sb = apt_signed_by_prefix(apt_keyring)
+
+    if distro == "ubuntu":
+        comp_str = resolve_apt_components_string(
+            mirrors,
+            str(mirrors["ubuntu"]),
+            release,
+            ctx,
+            fallback=["main"],
+        )
+        content = f"deb{sb} {mirrors['ubuntu']} {release} {comp_str}\n"
+        backup_file(Path("/etc/apt/sources.list"), ctx)
+        write_text_file(Path("/etc/apt/sources.list"), content, ctx)
+        post_change_update_cmd = "sudo apt update"
+    elif distro == "kali":
+        comp_str = resolve_apt_components_string(
+            mirrors,
+            str(mirrors["kali"]),
+            "kali-rolling",
+            ctx,
+            fallback=["main", "contrib", "non-free", "non-free-firmware"],
+        )
+        content = f"deb{sb} {mirrors['kali']} kali-rolling {comp_str}\n"
+        backup_file(Path("/etc/apt/sources.list"), ctx)
+        write_text_file(Path("/etc/apt/sources.list"), content, ctx)
+        post_change_update_cmd = "sudo apt update"
+    elif distro == "debian":
+        main_comp = resolve_apt_components_string(
+            mirrors,
+            str(mirrors["debian"]),
+            release,
+            ctx,
+            fallback=["main"],
+        )
+        main_line = f"deb{sb} {mirrors['debian']} {release} {main_comp}"
+        sec_mirror = mirrors.get("debianSecurity")
+        sec_line = ""
+        if sec_mirror:
+            sec_forced = mirrors.get("aptComponentsSecurity") or mirrors.get("apt_components_security")
+            if sec_forced is not None and str(sec_forced).strip():
+                sec_comp = " ".join(str(sec_forced).split())
+                info(f"Using configured APT components (Debian security): {sec_comp}")
+            else:
+                sec_found = fetch_apt_repo_components(str(sec_mirror), f"{release}-security", ctx)
+                sec_comp = " ".join(sec_found) if sec_found else "main"
+                if not sec_found:
+                    warn("Could not detect Debian security suite components; using main")
+            sec_line = f"deb{sb} {sec_mirror} {release}-security {sec_comp}"
+        content = "\n".join([x for x in [main_line, sec_line] if x]) + "\n"
+        backup_file(Path("/etc/apt/sources.list"), ctx)
+        write_text_file(Path("/etc/apt/sources.list"), content, ctx)
+        post_change_update_cmd = "sudo apt update"
+    elif distro == "fedora":
+        fedora_url = str(mirrors["fedora"]).rstrip("/")
+        backup_dir = Path("/etc/yum.repos.d")
+        backup_file(backup_dir / "fedora.repo", ctx)
+        backup_file(backup_dir / "fedora-updates.repo", ctx)
+        fedora_repo = (
+            "[fedora]\n"
+            "name=Fedora $releasever - $basearch\n"
+            f"baseurl={fedora_url}/releases/$releasever/Everything/$basearch/os/\n"
+            "enabled=1\n"
+            "gpgcheck=1\n"
+        )
+        updates_repo = (
+            "[updates]\n"
+            "name=Fedora $releasever - $basearch - Updates\n"
+            f"baseurl={fedora_url}/updates/$releasever/Everything/$basearch/\n"
+            "enabled=1\n"
+            "gpgcheck=1\n"
+        )
+        write_text_file(backup_dir / "fedora.repo", fedora_repo + "\n", ctx)
+        write_text_file(backup_dir / "fedora-updates.repo", updates_repo + "\n", ctx)
+        post_change_update_cmd = "sudo dnf clean all && sudo dnf makecache"
+    elif distro == "almalinux":
+        alma_url = str(mirrors["almalinux"]).rstrip("/")
+        repo_path = Path("/etc/yum.repos.d/almalinux.repo")
+        backup_file(repo_path, ctx)
+        content = (
+            "[baseos]\n"
+            "name=AlmaLinux $releasever - BaseOS\n"
+            f"baseurl={alma_url}/$releasever/BaseOS/$basearch/os/\n"
+            "enabled=1\n"
+            "gpgcheck=1\n\n"
+            "[appstream]\n"
+            "name=AlmaLinux $releasever - AppStream\n"
+            f"baseurl={alma_url}/$releasever/AppStream/$basearch/os/\n"
+            "enabled=1\n"
+            "gpgcheck=1\n"
+        )
+        write_text_file(repo_path, content, ctx)
+        post_change_update_cmd = "sudo dnf clean all && sudo dnf makecache"
+    elif distro == "archlinux":
+        repo_path = Path("/etc/pacman.d/mirrorlist")
+        backup_file(repo_path, ctx)
+        write_text_file(repo_path, f"Server = {mirrors['archlinux']}\n", ctx)
+        post_change_update_cmd = "sudo pacman -Syy"
+    elif distro == "alpine":
+        main = str(mirrors.get("alpineMain", "")).replace("<VERSION>", release)
+        community = str(mirrors.get("alpineCommunity", "")).replace("<VERSION>", release)
+        if not main or not community:
+            base = str(mirrors.get("alpine", "")).rstrip("/")
+            main = main or f"{base}/{release}/main"
+            community = community or f"{base}/{release}/community"
+        content = f"{main}\n{community}\n"
+        repo_path = Path("/etc/apk/repositories")
+        backup_file(repo_path, ctx)
+        write_text_file(repo_path, content, ctx)
+        post_change_update_cmd = "sudo apk update"
+    elif distro == "opensuse":
+        command = str(mirrors["opensuseReposCommand"]).replace("<VERSION>", release)
+        run_command(command, ctx, shell=True)
+        post_change_update_cmd = "sudo zypper refresh && zypper lr -u"
+    elif distro == "manjaro":
+        repo_path = Path("/etc/pacman.d/mirrorlist")
+        backup_file(repo_path, ctx)
+        write_text_file(repo_path, f"Server = {mirrors['manjaro']}\n", ctx)
+        post_change_update_cmd = "sudo pacman -Syy"
+
+    if post_change_update_cmd:
+        info("Running repository update/refresh automatically...")
+        run_command(post_change_update_cmd, ctx, shell=True)
+
+
 def repo_mode(ctx: Ctx) -> None:
     if not require_linux():
         return
@@ -592,106 +1062,35 @@ def repo_mode(ctx: Ctx) -> None:
     if not providers:
         warn("No mirror provider for selected distro.")
         return
-    p_idx = ask_choice("Select mirror provider", [p["name"] for p in providers], allow_back=True)
+
+    names = [p["name"] for p in providers]
+    names.append("Custom mirror (enter URLs manually)")
+    p_idx = ask_choice("Select mirror provider", names, allow_back=True)
     if p_idx < 0:
         return
-    provider = providers[p_idx]
-    mirrors = provider.get("mirrors", {})
-    info(f'Selected: {provider["name"]} for {distro}')
+
+    if p_idx == len(providers):
+        custom = prompt_custom_linux_mirrors(distro, release)
+        if not custom:
+            warn("Custom mirror setup cancelled or incomplete.")
+            return
+        mirrors = dict(custom)
+        info("Using custom mirror configuration.")
+    else:
+        provider = providers[p_idx]
+        mirrors = dict(provider.get("mirrors", {}))
+        if provider.get("keyringUrl"):
+            mirrors["keyringUrl"] = provider["keyringUrl"]
+        if provider.get("keyringName"):
+            mirrors["keyringName"] = provider["keyringName"]
+        info(f'Selected: {provider["name"]} for {distro}')
+
+    prompt_optional_apt_keyring(distro, mirrors)
 
     if distro != "opensuse" and not require_root_for_file_writes():
         return
 
-    post_change_update_cmd = ""
-
-    if distro == "ubuntu":
-        content = f"deb {mirrors['ubuntu']} {release} universe\n"
-        backup_file(Path("/etc/apt/sources.list"), ctx)
-        write_text_file(Path("/etc/apt/sources.list"), content, ctx)
-        post_change_update_cmd = "sudo apt update"
-    elif distro == "kali":
-        content = f"deb {mirrors['kali']} kali-rolling main contrib non-free non-free-firmware\n"
-        backup_file(Path("/etc/apt/sources.list"), ctx)
-        write_text_file(Path("/etc/apt/sources.list"), content, ctx)
-        post_change_update_cmd = "sudo apt update"
-    elif distro == "debian":
-        main_line = f"deb {mirrors['debian']} {release} main"
-        sec_mirror = mirrors.get("debianSecurity")
-        sec_line = f"deb {sec_mirror} {release}-security main" if sec_mirror else ""
-        content = "\n".join([x for x in [main_line, sec_line] if x]) + "\n"
-        backup_file(Path("/etc/apt/sources.list"), ctx)
-        write_text_file(Path("/etc/apt/sources.list"), content, ctx)
-        post_change_update_cmd = "sudo apt update"
-    elif distro == "fedora":
-        fedora_url = mirrors["fedora"].rstrip("/")
-        backup_dir = Path("/etc/yum.repos.d")
-        backup_file(backup_dir / "fedora.repo", ctx)
-        backup_file(backup_dir / "fedora-updates.repo", ctx)
-        fedora_repo = (
-            "[fedora]\n"
-            "name=Fedora $releasever - $basearch\n"
-            f"baseurl={fedora_url}/releases/$releasever/Everything/$basearch/os/\n"
-            "enabled=1\n"
-            "gpgcheck=1\n"
-        )
-        updates_repo = (
-            "[updates]\n"
-            "name=Fedora $releasever - $basearch - Updates\n"
-            f"baseurl={fedora_url}/updates/$releasever/Everything/$basearch/\n"
-            "enabled=1\n"
-            "gpgcheck=1\n"
-        )
-        write_text_file(backup_dir / "fedora.repo", fedora_repo + "\n", ctx)
-        write_text_file(backup_dir / "fedora-updates.repo", updates_repo + "\n", ctx)
-        post_change_update_cmd = "sudo dnf clean all && sudo dnf makecache"
-    elif distro == "almalinux":
-        alma_url = mirrors["almalinux"].rstrip("/")
-        repo_path = Path("/etc/yum.repos.d/almalinux.repo")
-        backup_file(repo_path, ctx)
-        content = (
-            "[baseos]\n"
-            "name=AlmaLinux $releasever - BaseOS\n"
-            f"baseurl={alma_url}/$releasever/BaseOS/$basearch/os/\n"
-            "enabled=1\n"
-            "gpgcheck=1\n\n"
-            "[appstream]\n"
-            "name=AlmaLinux $releasever - AppStream\n"
-            f"baseurl={alma_url}/$releasever/AppStream/$basearch/os/\n"
-            "enabled=1\n"
-            "gpgcheck=1\n"
-        )
-        write_text_file(repo_path, content, ctx)
-        post_change_update_cmd = "sudo dnf clean all && sudo dnf makecache"
-    elif distro == "archlinux":
-        repo_path = Path("/etc/pacman.d/mirrorlist")
-        backup_file(repo_path, ctx)
-        write_text_file(repo_path, f"Server = {mirrors['archlinux']}\n", ctx)
-        post_change_update_cmd = "sudo pacman -Syy"
-    elif distro == "alpine":
-        main = mirrors.get("alpineMain", "").replace("<VERSION>", release)
-        community = mirrors.get("alpineCommunity", "").replace("<VERSION>", release)
-        if not main or not community:
-            base = mirrors.get("alpine", "").rstrip("/")
-            main = main or f"{base}/{release}/main"
-            community = community or f"{base}/{release}/community"
-        content = f"{main}\n{community}\n"
-        repo_path = Path("/etc/apk/repositories")
-        backup_file(repo_path, ctx)
-        write_text_file(repo_path, content, ctx)
-        post_change_update_cmd = "sudo apk update"
-    elif distro == "opensuse":
-        command = mirrors["opensuseReposCommand"].replace("<VERSION>", release)
-        run_command(command, ctx, shell=True)
-        post_change_update_cmd = "sudo zypper refresh && zypper lr -u"
-    elif distro == "manjaro":
-        repo_path = Path("/etc/pacman.d/mirrorlist")
-        backup_file(repo_path, ctx)
-        write_text_file(repo_path, f"Server = {mirrors['manjaro']}\n", ctx)
-        post_change_update_cmd = "sudo pacman -Syy"
-
-    if post_change_update_cmd:
-        info("Running repository update/refresh automatically...")
-        run_command(post_change_update_cmd, ctx, shell=True)
+    apply_linux_repo_config(distro, release, mirrors, ctx)
 
 
 # -------------------- Docker mirror mode --------------------
@@ -812,16 +1211,299 @@ def devpkg_mode(ctx: Ctx) -> None:
         return
 
 
-# -------------------- Main menu --------------------
+# -------------------- CLI (non-interactive `run`) --------------------
 
 
-def main() -> int:
-    dry_run = "--dry-run" in sys.argv
-    ctx = Ctx(dry_run=dry_run)
+def _mirrors_from_repo_cli_args(
+    distro: str,
+    release: str,
+    args: argparse.Namespace,
+) -> dict[str, Any] | None:
+    """Build mirrors dict from `run repo` flags; returns None if invalid."""
+    if getattr(args, "provider_id", None):
+        prov = find_linux_mirror_provider_by_id(args.provider_id)
+        if not prov:
+            err(f'Unknown linux mirror provider id: "{args.provider_id}"')
+            return None
+        if not provider_supports_distro(prov, distro):
+            err(f'Provider "{args.provider_id}" does not support distro "{distro}".')
+            return None
+        mirrors = dict(prov.get("mirrors", {}))
+        if prov.get("keyringUrl"):
+            mirrors["keyringUrl"] = prov["keyringUrl"]
+        if prov.get("keyringName"):
+            mirrors["keyringName"] = prov["keyringName"]
+        return mirrors
 
+    if distro == "opensuse" and getattr(args, "custom_zypper_command", None):
+        return {"opensuseReposCommand": args.custom_zypper_command.strip()}
+
+    # Custom URLs
+    if args.custom_url:
+        u = args.custom_url.strip().rstrip("/")
+        suf = "/" if not u.endswith("/") else ""
+        if distro == "ubuntu":
+            return {"ubuntu": u + suf}
+        if distro == "kali":
+            return {"kali": u + suf}
+        if distro == "debian":
+            out: dict[str, Any] = {"debian": u + suf}
+            if getattr(args, "custom_security_url", None):
+                s = args.custom_security_url.strip().rstrip("/")
+                out["debianSecurity"] = s + ("/" if not s.endswith("/") else "")
+            return out
+        if distro == "fedora":
+            return {"fedora": u + suf}
+        if distro == "almalinux":
+            return {"almalinux": u + suf}
+        if distro in ("archlinux", "manjaro"):
+            key = "archlinux" if distro == "archlinux" else "manjaro"
+            return {key: args.custom_url.strip()}
+        if distro == "alpine":
+            if args.custom_alpine_main and args.custom_alpine_community:
+                return {
+                    "alpineMain": args.custom_alpine_main.strip(),
+                    "alpineCommunity": args.custom_alpine_community.strip(),
+                }
+            b = u + suf
+            return {
+                "alpineMain": f"{b}{release}/main",
+                "alpineCommunity": f"{b}{release}/community",
+            }
+
+    if distro == "alpine" and args.custom_alpine_main and args.custom_alpine_community:
+        return {
+            "alpineMain": args.custom_alpine_main.strip(),
+            "alpineCommunity": args.custom_alpine_community.strip(),
+        }
+
+    err("For `run repo`, specify --provider-id or custom URL flags matching this distro (see --help).")
+    return None
+
+
+def cmd_run_dns(args: argparse.Namespace, ctx: Ctx) -> int:
+    manager_type, _ = detect_dns_config()
+    servers: list[str] = []
+
+    if args.servers:
+        servers = parse_dns_servers_arg(args.servers)
+    elif args.provider_id:
+        prov = find_dns_provider_by_id(args.provider_id)
+        if not prov:
+            err(f'Unknown DNS provider id: "{args.provider_id}"')
+            return 2
+        servers = list(prov.get("dnsServers") or [])
+    else:
+        err("Specify --servers or --provider-id.")
+        return 2
+
+    if not servers:
+        err("No DNS servers resolved.")
+        return 2
+
+    action = args.action
+    method = args.method
+
+    if action == "print":
+        print_dns_commands(servers)
+        return 0
+
+    if method == "auto":
+        dns_resolve_apply_method(
+            servers,
+            ctx,
+            manager_type,
+            nmcli_connection=args.nmcli_connection,
+            windows_interface=args.windows_interface,
+        )
+        return 0
+
+    ok = dns_apply_method(
+        servers,
+        method,
+        ctx,
+        nmcli_connection=args.nmcli_connection,
+        windows_interface=args.windows_interface,
+    )
+    return 0 if ok else 2
+
+
+def cmd_run_repo(args: argparse.Namespace, ctx: Ctx) -> int:
+    if not require_linux():
+        return 2
+    distro, release = detect_linux_distro_release()
+    if not distro:
+        err("Could not auto-detect distro from /etc/os-release.")
+        return 2
+    if distro == "ubuntu" and not release:
+        err("Could not auto-detect Ubuntu codename.")
+        return 2
+    if distro == "debian" and not release:
+        err("Could not auto-detect Debian codename.")
+        return 2
+    if distro == "alpine" and not release:
+        err("Could not auto-detect Alpine version.")
+        return 2
+    if distro == "opensuse" and not release:
+        err("Could not auto-detect OpenSUSE version.")
+        return 2
+
+    info(f"Detected distro: {distro}" + (f", release: {release}" if release else ""))
+
+    mirrors = _mirrors_from_repo_cli_args(distro, release, args)
+    if not mirrors:
+        return 2
+
+    if getattr(args, "keyring_url", None):
+        if distro not in ("ubuntu", "debian", "kali"):
+            warn("--keyring-url only applies to apt-based distros (Ubuntu/Debian/Kali); ignoring.")
+        else:
+            mirrors["keyringUrl"] = args.keyring_url.strip()
+            if getattr(args, "keyring_name", None):
+                mirrors["keyringName"] = args.keyring_name.strip()
+
+    if getattr(args, "apt_components", None):
+        mirrors["aptComponents"] = args.apt_components.strip()
+
+    if distro != "opensuse" and not require_root_for_file_writes():
+        return 2
+
+    apply_linux_repo_config(distro, release, mirrors, ctx)
+    return 0
+
+
+def cmd_run_docker(args: argparse.Namespace, ctx: Ctx) -> int:
+    if not args.mirror_id:
+        err("Specify --mirror-id (see providers.json docker_mirrors).")
+        return 2
+    mid = args.mirror_id.lower()
+    mirror = next((x for x in DOCKER_MIRRORS if str(x.get("id", "")).lower() == mid), None)
+    if not mirror:
+        err(f'Unknown Docker mirror id: "{args.mirror_id}"')
+        return 2
+    info(f'Selected Docker mirror: {mirror["name"]} -> {mirror["url"]}')
+    if not require_linux():
+        return 2
+    if not require_root_for_file_writes():
+        return 2
+    daemon_path = Path("/etc/docker/daemon.json")
+    backup_file(daemon_path, ctx)
+    cfg = {
+        "insecure-registries": [mirror["url"]],
+        "registry-mirrors": [mirror["url"]],
+    }
+    write_text_file(daemon_path, json.dumps(cfg, indent=2) + "\n", ctx)
+    if args.restart_docker:
+        run_command("sudo systemctl daemon-reload", ctx, shell=True)
+        run_command("sudo systemctl restart docker", ctx, shell=True)
+    run_command('docker info | grep -i "Registry Mirrors"', ctx, shell=True)
+    return 0
+
+
+def build_arg_parser() -> argparse.ArgumentParser:
+    p = argparse.ArgumentParser(
+        description="Offline network helper: interactive menu by default, or `run` for non-interactive use.",
+    )
+    p.add_argument("--dry-run", action="store_true", help="Print commands / file contents only.")
+    sub = p.add_subparsers(dest="command", metavar="COMMAND")
+
+    run_p = sub.add_parser("run", help="Run one action from arguments (no prompts).")
+    run_sub = run_p.add_subparsers(dest="run_target", required=True, metavar="ACTION")
+
+    dns_p = run_sub.add_parser("dns", help="Apply or print DNS settings.")
+    dns_src = dns_p.add_mutually_exclusive_group(required=True)
+    dns_src.add_argument(
+        "--servers",
+        metavar="LIST",
+        help="Comma/space-separated DNS IPs.",
+    )
+    dns_src.add_argument(
+        "--provider-id",
+        metavar="ID",
+        help="DNS provider id from providers.json.",
+    )
+    dns_p.add_argument(
+        "--action",
+        choices=("print", "apply"),
+        default="apply",
+        help="print = show sample commands only; apply = change system DNS.",
+    )
+    dns_p.add_argument(
+        "--method",
+        choices=("auto", "print", "resolv_conf", "nmcli", "systemd_resolved", "windows_netsh"),
+        default="auto",
+        help="With --action apply: auto = use detected manager; or force a backend.",
+    )
+    dns_p.add_argument(
+        "--nmcli-connection",
+        metavar="NAME",
+        help="Required for nmcli when connection cannot be prompted (non-interactive).",
+    )
+    dns_p.add_argument(
+        "--windows-interface",
+        metavar="NAME",
+        default="Ethernet",
+        help="Interface name for Windows netsh (default: Ethernet).",
+    )
+
+    repo_p = run_sub.add_parser("repo", help="Configure Linux package mirrors on this machine.")
+    repo_p.add_argument("--provider-id", metavar="ID", help="linux_mirror_providers id from providers.json.")
+    repo_p.add_argument(
+        "--custom-url",
+        metavar="URL",
+        help="Custom mirror: meaning depends on distro (Ubuntu/Kali/Debian main/Fedora/Alma/arch+manjaro Server value/Alpine base).",
+    )
+    repo_p.add_argument(
+        "--custom-security-url",
+        metavar="URL",
+        help="Debian security mirror (with --custom-url as main).",
+    )
+    repo_p.add_argument(
+        "--custom-alpine-main",
+        metavar="URL",
+        help="Alpine main repository line (with --custom-alpine-community).",
+    )
+    repo_p.add_argument(
+        "--custom-alpine-community",
+        metavar="URL",
+        help="Alpine community repository line.",
+    )
+    repo_p.add_argument(
+        "--custom-zypper-command",
+        metavar="SHELL",
+        help="OpenSUSE: shell command to add repos; use <VERSION> for detected release.",
+    )
+    repo_p.add_argument(
+        "--keyring-url",
+        metavar="URL",
+        help="Ubuntu/Debian/Kali: download signing key, gpg --dearmor to /usr/share/keyrings, add signed-by to deb lines.",
+    )
+    repo_p.add_argument(
+        "--keyring-name",
+        metavar="FILE",
+        help="Basename under /usr/share/keyrings (default: from URL path, e.g. x-online.gpg).",
+    )
+    repo_p.add_argument(
+        "--apt-components",
+        metavar="LIST",
+        help="Ubuntu/Debian/Kali: override deb components (space-separated). Skips Release fetch.",
+    )
+
+    dock_p = run_sub.add_parser("docker", help="Write /etc/docker/daemon.json registry mirror.")
+    dock_p.add_argument("--mirror-id", metavar="ID", required=True, help="docker_mirrors id from providers.json.")
+    dock_p.add_argument(
+        "--restart-docker",
+        action="store_true",
+        help="Run systemctl restart docker after writing daemon.json.",
+    )
+
+    return p
+
+
+def interactive_main(ctx: Ctx) -> int:
     print(logo())
 
-    if dry_run:
+    if ctx.dry_run:
         warn("Dry-run mode is ON. Commands will be printed only.")
     else:
         warn("Apply mode is ON. Changes will be executed.")
@@ -849,6 +1531,32 @@ def main() -> int:
         else:
             print("Bye.")
             return 0
+
+
+def main() -> int:
+    parser = build_arg_parser()
+    args, unknown = parser.parse_known_args()
+    if unknown:
+        err(f"Unknown arguments: {' '.join(unknown)}")
+        return 2
+
+    ctx = Ctx(dry_run=args.dry_run)
+
+    if args.command == "run":
+        if args.run_target == "dns":
+            return cmd_run_dns(args, ctx)
+        if args.run_target == "repo":
+            return cmd_run_repo(args, ctx)
+        if args.run_target == "docker":
+            return cmd_run_docker(args, ctx)
+        err(f"Unhandled run target: {args.run_target}")
+        return 2
+
+    if args.command is not None:
+        err("Only `run` is supported as a subcommand. Use: OfflineHelper.py run <action> ...")
+        return 2
+
+    return interactive_main(ctx)
 
 
 if __name__ == "__main__":
