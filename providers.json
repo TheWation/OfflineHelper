@@ -37,12 +37,14 @@
     {"id": "controld", "name": "Control D DNS", "is_official": true, "is_sanctions_friendly": false, "is_in_iran": false, "dnsServers": ["76.76.2.0", "76.76.10.0"]}
   ],
   "docker_mirrors": [
+		{"id": "abrha", "name": "Abrha (ParsPack)", "mirrorUrl": "https://docker.abrha.net"},
     {"id": "arvan", "name": "ArvanCloud", "url": "https://docker.arvancloud.ir"},
     {"id": "runflare", "name": "Runflare", "url": "https://mirror-docker.runflare.com"},
     {"id": "iranserver", "name": "IranServer", "url": "https://docker.iranserver.com"}
   ],
   "linux_mirror_providers": [
     {"id": "ubuntu-ir-official", "name": "Official Mirror (Iran)", "mirrors": {"root": "https://ir.archive.ubuntu.com/ubuntu/", "ubuntu": "https://ir.archive.ubuntu.com/ubuntu/"}},
+    {"id": "abrha", "name": "Abrha (ParsPack)", "mirrors": { "root": "https://repo.abrha.net/", "ubuntu": "https://repo.abrha.net/ubuntu", "debian": "https://repo.abrha.net/debian", "almalinux": "https://repo.abrha.net/almalinux"}},
     {"id": "runflare", "name": "Runflare", "mirrors": {"root": "https://mirror-linux.runflare.com/", "ubuntu": "https://mirror-linux.runflare.com/ubuntu", "kali": "https://mirror-linux.runflare.com/kali", "debian": "https://mirror-linux.runflare.com/debian", "fedora": "https://mirror-linux.runflare.com/fedora", "almalinux": "https://mirror-linux.runflare.com/almalinux", "archlinux": "https://mirror-linux.runflare.com/archlinux", "alpine": "https://mirror-linux.runflare.com/alpine"}},
     {"id": "sindad", "name": "Sindad", "mirrors": {"root": "http://ir.ubuntu.sindad.cloud/ubuntu/", "ubuntu": "http://ir.ubuntu.sindad.cloud/ubuntu/"}},
     {"id": "shatel", "name": "Shatel", "mirrors": {"root": "https://mirror.shatel.ir/ubuntu/", "ubuntu": "https://mirror.shatel.ir/ubuntu/"}},
@@ -65,6 +67,20 @@
     }}
   ],
   "pkg_providers": [
+    {
+			"id": "abrha",
+			"name": "Abrha (ParsPack)",
+			"mirrors": {
+				"nodeDownload": "https://mirror-nodejs.runflare.com/dist/",
+				"npmRegistry": "https://mirror.abrha.net/repository/npm/",
+				"yarnRegistry": "https://mirror.abrha.net/repository/npm/",
+				"goproxy": "https://mirror.abrha.net/repository/go/",
+				"pypi": "https://mirror.abrha.net/repository/pypi/simple",
+				"maven": "https://mirror.abrha.net/repository/maven/",
+				"nuget": "https://mirror.abrha.net/repository/nuget/index.json",
+				"composer": "https://mirror.abrha.net/repository/composer/"
+			}
+		},
     {"id": "runflare", "name": "Runflare", "mirrors": {
       "nodeDownload": "https://mirror-nodejs.runflare.com/dist/",
       "npmRegistry": "https://mirror-npm.runflare.com",
